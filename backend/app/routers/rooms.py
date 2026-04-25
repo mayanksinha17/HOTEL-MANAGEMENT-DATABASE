@@ -33,6 +33,18 @@ def get_rooms_by_hotel(hotel_id: int, db: Session = Depends(get_db)):
     return [RoomResponse.model_validate(r) for r in rooms]
 
 
+@router.get("/all", response_model=List[RoomResponse])
+def get_all_rooms(
+    admin=Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all rooms across all hotels (admin only).
+    """
+    rooms = db.query(Room).order_by(Room.created_at.desc()).all()
+    return [RoomResponse.model_validate(r) for r in rooms]
+
+
 @router.get("/{room_id}", response_model=RoomResponse)
 def get_room(room_id: int, db: Session = Depends(get_db)):
     """
@@ -49,16 +61,7 @@ def get_room(room_id: int, db: Session = Depends(get_db)):
 
 # --- Admin Routes ---
 
-@router.get("/all", response_model=List[RoomResponse])
-def get_all_rooms(
-    admin=Depends(get_current_admin),
-    db: Session = Depends(get_db)
-):
-    """
-    Get all rooms across all hotels (admin only).
-    """
-    rooms = db.query(Room).order_by(Room.created_at.desc()).all()
-    return [RoomResponse.model_validate(r) for r in rooms]
+
 
 
 @router.post("/", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
