@@ -42,6 +42,11 @@ export default function AdminPage() {
         .then(res => setDataList(res.data))
         .catch(err => console.error(err))
         .finally(() => setLoading(false));
+    } else if (activeTab === 'Rooms') {
+      api.get('/rooms/all')
+        .then(res => setDataList(res.data))
+        .catch(err => console.error(err))
+        .finally(() => setLoading(false));
     } else {
       setDataList([]);
       setLoading(false);
@@ -98,7 +103,7 @@ export default function AdminPage() {
                 <tr key={item.id} className={`${idx !== dataList.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition-colors`}>
                   <td className="py-5 px-8 text-gray-500 font-inter text-sm font-medium">#{item.id}</td>
                   <td className="py-5 px-8 text-[#0D1B2A] font-inter text-sm font-semibold">
-                    {activeTab === 'Hotels' ? item.name : activeTab === 'Bookings' ? `${item.hotel_name} — ${item.room_type}` : item.name || 'Detail'}
+                    {activeTab === 'Hotels' ? item.name : activeTab === 'Bookings' ? `${item.hotel_name} — ${item.room_type}` : activeTab === 'Rooms' ? item.room_type : item.name || 'Detail'}
                   </td>
                   <td className="py-5 px-8 text-sm">
                     <button className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors mr-3 font-medium font-inter">Edit</button>
