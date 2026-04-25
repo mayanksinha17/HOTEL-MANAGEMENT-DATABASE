@@ -73,7 +73,7 @@ export default function AdminPage() {
   };
 
   const handleDelete = (id) => {
-    if (activeTab === 'Bookings') {
+    if (activeTab === 'Bookings' || activeTab === 'Dashboard') {
       if (!window.confirm('Are you sure you want to cancel this booking?')) return;
       api.put(`/bookings/${id}/cancel`)
         .then(() => {
