@@ -28,8 +28,14 @@ export default function AdminPage() {
     
     setLoading(true);
     if (activeTab === 'Dashboard') {
-      api.get('/admin/stats')
-        .then(res => setStats(res.data))
+      Promise.all([
+        api.get('/admin/stats'),
+        api.get('/bookings/all')
+      ])
+        .then(([statsRes, bookingsRes]) => {
+          setStats(statsRes.data);
+          setDataList(bookingsRes.data.slice(0, 5)); // Show only 5 recent bookings on dashboard
+        })
         .catch(err => console.error(err))
         .finally(() => setLoading(false));
     } else if (activeTab === 'Hotels') {
@@ -100,6 +106,90 @@ export default function AdminPage() {
     </div>
   );
 
+  const getStatusBadge = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'confirmed':
+      case 'upcoming':
+        return <span className="px-4 py-1.5 bg-blue-50/80 text-blue-600 rounded-full text-xs font-bold tracking-wider uppercase border border-blue-100 backdrop-blur-sm shadow-sm">Upcoming</span>;
+      case 'completed':
+        return <span className="px-4 py-1.5 bg-green-50/80 text-green-600 rounded-full text-xs font-bold tracking-wider uppercase border border-green-100 backdrop-blur-sm shadow-sm">Completed</span>;
+      case 'cancelled':
+        return <span className="px-4 py-1.5 bg-red-50/80 text-red-500 rounded-full text-xs font-bold tracking-wider uppercase border border-red-100 backdrop-blur-sm shadow-sm">Cancelled</span>;
+      default:
+        return <span className="px-4 py-1.5 bg-gray-50/80 text-gray-600 rounded-full text-xs font-bold tracking-wider uppercase border border-gray-200 backdrop-blur-sm shadow-sm">{status}</span>;
+    }
+  };
+
+  const renderBookingCards = () => (
+    <div className="space-y-6 mt-8">
+      {activeTab === 'Dashboard' && <h3 className="text-2xl font-playfair font-bold text-[#0D1B2A] mb-4">Recent Bookings</h3>}
+      {dataList.length === 0 ? (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-16 text-center">
+          <h3 className="text-2xl font-semibold text-gray-800 mb-2">No Bookings Yet</h3>
+          <p className="text-gray-500 max-w-md mx-auto leading-relaxed">No reservations have been made on the platform yet.</p>
+        </div>
+      ) : (
+        dataList.map(booking => (
+          <div key={booking.id} className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col md:flex-row group hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300">
+            <div className="md:w-64 h-56 shrink-0 relative overflow-hidden">
+              <img 
+                src={booking.hotel_image || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'} 
+                alt={booking.hotel_name} 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="text-white font-playfair text-xl font-bold leading-tight mb-1">{booking.hotel_name}</div>
+                <div className="text-white/80 text-xs">#{booking.id} • {booking.room_type}</div>
+              </div>
+            </div>
+
+            <div className="p-6 flex-1 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="text-[#0D1B2A] font-semibold">
+                      {new Date(booking.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
+                      <span className="text-gray-400 mx-2">→</span> 
+                      {new Date(booking.check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      Booked by: <span className="font-medium text-[#0D1B2A]">{booking.user_name || 'User'}</span> ({booking.user_email || 'No email'})
+                    </div>
+                  </div>
+                  {getStatusBadge(booking.status)}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 py-4 border-y border-gray-100">
+                  <div>
+                    <div className="text-sm text-[#64748B] mb-1 font-medium">Guests</div>
+                    <div className="text-[#0D1B2A] font-semibold">{booking.guests} Guests</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-[#64748B] mb-1 font-medium">Total Amount</div>
+                    <div className="text-[#C9A84C] font-bold text-lg">₹{booking.total_price?.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+
+              {(booking.status === 'confirmed' || booking.status === 'upcoming') && (
+                <div className="mt-4 flex justify-end">
+                  <button 
+                    onClick={() => handleDelete(booking.id)}
+                    className="text-red-500 hover:text-white border border-red-200 hover:bg-red-500 hover:border-red-500 px-6 py-2 rounded-xl text-sm font-semibold transition-all duration-300"
+                  >
+                    Cancel Booking
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   const renderTable = () => (
     <div className="w-full bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
@@ -108,7 +198,6 @@ export default function AdminPage() {
             <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase font-inter tracking-wider border-b border-gray-100">
               <th className="py-5 px-8 font-semibold">ID</th>
               <th className="py-5 px-8 font-semibold">Name / Details</th>
-              {activeTab === 'Bookings' && <th className="py-5 px-8 font-semibold">Booked By</th>}
               <th className="py-5 px-8 font-semibold">Actions</th>
             </tr>
           </thead>
@@ -120,28 +209,11 @@ export default function AdminPage() {
                 <tr key={item.id} className={`${idx !== dataList.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition-colors`}>
                   <td className="py-5 px-8 text-gray-500 font-inter text-sm font-medium">#{item.id}</td>
                   <td className="py-5 px-8 text-[#0D1B2A] font-inter text-sm font-semibold">
-                    {activeTab === 'Hotels' ? item.name : activeTab === 'Bookings' ? (
-                      <div className="flex flex-col gap-1">
-                        <span>{item.hotel_name} — {item.room_type}</span>
-                        {item.status === 'cancelled' && (
-                          <span className="w-fit px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded uppercase">Cancelled</span>
-                        )}
-                      </div>
-                    ) : activeTab === 'Rooms' ? item.room_type : item.name || 'Detail'}
+                    {activeTab === 'Hotels' ? item.name : activeTab === 'Rooms' ? item.room_type : item.name || 'Detail'}
                   </td>
-                  {activeTab === 'Bookings' && (
-                    <td className="py-5 px-8 text-sm">
-                      <div className="font-semibold text-[#0D1B2A]">{item.user_name || 'Unknown User'}</div>
-                      <div className="text-gray-500 text-xs">{item.user_email || 'No email'}</div>
-                    </td>
-                  )}
                   <td className="py-5 px-8 text-sm">
                     <button onClick={() => toast.error('Edit disabled in demo')} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors mr-3 font-medium font-inter">Edit</button>
-                    {activeTab === 'Bookings' && item.status !== 'cancelled' ? (
-                      <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-md transition-colors font-medium font-inter">Cancel</button>
-                    ) : (
-                      <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-md transition-colors font-medium font-inter disabled:opacity-50">Delete</button>
-                    )}
+                    <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-md transition-colors font-medium font-inter disabled:opacity-50">Delete</button>
                   </td>
                 </tr>
               ))
@@ -258,8 +330,14 @@ export default function AdminPage() {
                <div className="w-10 h-10 border-4 border-[#C9A84C] border-t-transparent rounded-full animate-spin"></div>
              </div>
           ) : (
-            activeTab === 'Dashboard' ? renderDashboard() : 
+            activeTab === 'Dashboard' ? (
+              <>
+                {renderDashboard()}
+                {renderBookingCards()}
+              </>
+            ) : 
             activeTab === 'Profile' ? renderProfile() : 
+            activeTab === 'Bookings' ? renderBookingCards() :
             renderTable()
           )}
         </motion.div>
