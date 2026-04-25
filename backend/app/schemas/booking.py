@@ -43,3 +43,5 @@ class BookingWithHotel(BookingResponse):
     hotel_name: Optional[str] = None
     hotel_image: Optional[str] = None
     room_type: Optional[str] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None

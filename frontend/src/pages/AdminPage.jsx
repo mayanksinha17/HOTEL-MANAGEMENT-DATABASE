@@ -108,6 +108,7 @@ export default function AdminPage() {
             <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase font-inter tracking-wider border-b border-gray-100">
               <th className="py-5 px-8 font-semibold">ID</th>
               <th className="py-5 px-8 font-semibold">Name / Details</th>
+              {activeTab === 'Bookings' && <th className="py-5 px-8 font-semibold">Booked By</th>}
               <th className="py-5 px-8 font-semibold">Actions</th>
             </tr>
           </thead>
@@ -120,14 +121,20 @@ export default function AdminPage() {
                   <td className="py-5 px-8 text-gray-500 font-inter text-sm font-medium">#{item.id}</td>
                   <td className="py-5 px-8 text-[#0D1B2A] font-inter text-sm font-semibold">
                     {activeTab === 'Hotels' ? item.name : activeTab === 'Bookings' ? (
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-1">
                         <span>{item.hotel_name} — {item.room_type}</span>
                         {item.status === 'cancelled' && (
-                          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded uppercase">Cancelled</span>
+                          <span className="w-fit px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded uppercase">Cancelled</span>
                         )}
                       </div>
                     ) : activeTab === 'Rooms' ? item.room_type : item.name || 'Detail'}
                   </td>
+                  {activeTab === 'Bookings' && (
+                    <td className="py-5 px-8 text-sm">
+                      <div className="font-semibold text-[#0D1B2A]">{item.user_name || 'Unknown User'}</div>
+                      <div className="text-gray-500 text-xs">{item.user_email || 'No email'}</div>
+                    </td>
+                  )}
                   <td className="py-5 px-8 text-sm">
                     <button onClick={() => toast.error('Edit disabled in demo')} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors mr-3 font-medium font-inter">Edit</button>
                     {activeTab === 'Bookings' && item.status !== 'cancelled' ? (

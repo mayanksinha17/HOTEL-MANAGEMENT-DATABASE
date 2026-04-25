@@ -190,7 +190,8 @@ def get_all_bookings(
     """
     bookings = (
         db.query(Booking)
-        .options(joinedload(Booking.room))
+        .options(joinedload(Booking.room).joinedload(Room.hotel))
+        .options(joinedload(Booking.user))
         .order_by(Booking.created_at.desc())
         .all()
     )
@@ -201,6 +202,8 @@ def get_all_bookings(
         booking_dict["hotel_name"] = b.room.hotel.name if b.room and b.room.hotel else None
         booking_dict["hotel_image"] = b.room.hotel.image_url if b.room and b.room.hotel else None
         booking_dict["room_type"] = b.room.room_type if b.room else None
+        booking_dict["user_name"] = b.user.name if b.user else None
+        booking_dict["user_email"] = b.user.email if b.user else None
         result.append(BookingWithHotel(**booking_dict))
 
     return result

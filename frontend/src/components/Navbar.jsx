@@ -62,20 +62,21 @@ export default function Navbar() {
 
             {user ? (
               <div className="flex items-center gap-4">
-                {user.is_admin && (
+                {user.is_admin ? (
                   <Link
                     to="/admin"
                     className="text-white/80 hover:text-[#C9A84C] transition-colors text-sm font-medium flex items-center gap-1"
                   >
-                    <FiGrid size={14} /> Admin
+                    <FiGrid size={14} /> Admin Panel
+                  </Link>
+                ) : (
+                  <Link
+                    to="/dashboard"
+                    className="text-white/80 hover:text-[#C9A84C] transition-colors text-sm font-medium flex items-center gap-1"
+                  >
+                    <FiUser size={14} /> {user.name}
                   </Link>
                 )}
-                <Link
-                  to="/dashboard"
-                  className="text-white/80 hover:text-[#C9A84C] transition-colors text-sm font-medium flex items-center gap-1"
-                >
-                  <FiUser size={14} /> {user.name}
-                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-white/60 hover:text-red-400 transition-colors text-sm flex items-center gap-1"
@@ -114,10 +115,11 @@ export default function Navbar() {
               <Link to="/search" onClick={() => setMobileOpen(false)} className="block text-white/80 hover:text-[#C9A84C] py-2">Hotels</Link>
               {user ? (
                 <>
-                  {user.is_admin && (
+                  {user.is_admin ? (
                     <Link to="/admin" onClick={() => setMobileOpen(false)} className="block text-white/80 hover:text-[#C9A84C] py-2">Admin Panel</Link>
+                  ) : (
+                    <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="block text-white/80 hover:text-[#C9A84C] py-2">Dashboard</Link>
                   )}
-                  <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="block text-white/80 hover:text-[#C9A84C] py-2">Dashboard</Link>
                   <button onClick={handleLogout} className="block text-red-400 py-2">Logout</button>
                 </>
               ) : (
