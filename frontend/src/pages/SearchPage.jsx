@@ -7,6 +7,7 @@ import api from '../api/axios';
 export default function SearchPage() {
   const navigate = useNavigate();
   const fallbackImg = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800';
+  const [allHotels, setAllHotels] = useState([]);
   const [hotels, setHotels] = useState([]);
   
   const [filters, setFilters] = useState({
@@ -20,7 +21,10 @@ export default function SearchPage() {
 
   useEffect(() => {
     api.get('/hotels/')
-      .then(res => setHotels(res.data))
+      .then(res => {
+        setAllHotels(res.data);
+        setHotels(res.data);
+      })
       .catch(err => console.error(err));
   }, []);
 
@@ -44,7 +48,25 @@ export default function SearchPage() {
 
   const applyFilters = (e) => {
     e.preventDefault();
-    // Dummy apply function
+    let filtered = [...allHotels];
+
+    if (filters.minPrice) {
+      filtered = filtered.filter(h => h.price_per_night >= Number(filters.minPrice));
+    }
+    if (filters.maxPrice) {
+      filtered = filtered.filter(h => h.price_per_night <= Number(filters.maxPrice));
+    }
+    if (filters.stars.length > 0) {
+      filtered = filtered.filter(h => filters.stars.includes(h.star_rating));
+    }
+    if (filters.amenities.length > 0) {
+      filtered = filtered.filter(h => {
+        const hAmenities = h.amenities ? (typeof h.amenities === 'string' ? h.amenities.toLowerCase() : JSON.stringify(h.amenities).toLowerCase()) : '';
+        return filters.amenities.every(a => hAmenities.includes(a.toLowerCase()));
+      });
+    }
+
+    setHotels(filtered);
   };
 
   return (
