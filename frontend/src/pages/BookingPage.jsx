@@ -17,7 +17,8 @@ export default function BookingPage() {
     check_in: '',
     check_out: '',
     guests: 1,
-    special_requests: ''
+    special_requests: '',
+    payment_method: 'credit_card'
   });
 
   const fallbackImg = 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=600';
@@ -44,6 +45,9 @@ export default function BookingPage() {
     .finally(() => setLoading(false));
   }, [roomId, hotelId, navigate]);
 
+  const today = new Date().toISOString().split('T')[0];
+  const minCheckOut = formData.check_in || today;
+
   const calculateNights = () => {
     if (!formData.check_in || !formData.check_out) return 0;
     const start = new Date(formData.check_in);
@@ -66,11 +70,11 @@ export default function BookingPage() {
     // Create booking API call
     api.post('/bookings/', {
       room_id: parseInt(roomId),
-      check_in_date: formData.check_in,
-      check_out_date: formData.check_out,
+      check_in: formData.check_in,
+      check_out: formData.check_out,
       guests: parseInt(formData.guests),
-      total_price: totalPrice,
-      special_requests: formData.special_requests
+      special_requests: formData.special_requests,
+      payment_method: formData.payment_method
     })
     .then(() => {
       toast.success('Booking confirmed successfully!');
@@ -78,7 +82,16 @@ export default function BookingPage() {
     })
     .catch((err) => {
       console.error(err);
-      toast.error(err.response?.data?.detail || 'Failed to confirm booking');
+      let errMsg = 'Failed to confirm booking';
+      if (err.response?.data?.detail) {
+        // Handle FastAPI 422 validation array or string
+        if (Array.isArray(err.response.data.detail)) {
+          errMsg = err.response.data.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
+        } else {
+          errMsg = err.response.data.detail;
+        }
+      }
+      toast.error(errMsg);
     });
   };
 
@@ -134,6 +147,7 @@ export default function BookingPage() {
                 <input 
                   type="date" 
                   required
+                  min={today}
                   value={formData.check_in}
                   onChange={(e) => setFormData({...formData, check_in: e.target.value})}
                   className="w-full border border-gray-200 rounded-lg px-4 py-2 mt-1 focus:ring-2 focus:ring-yellow-500 focus:outline-none font-inter text-gray-800"
@@ -145,6 +159,7 @@ export default function BookingPage() {
                 <input 
                   type="date" 
                   required
+                  min={minCheckOut}
                   value={formData.check_out}
                   onChange={(e) => setFormData({...formData, check_out: e.target.value})}
                   className="w-full border border-gray-200 rounded-lg px-4 py-2 mt-1 focus:ring-2 focus:ring-yellow-500 focus:outline-none font-inter text-gray-800"
@@ -173,6 +188,20 @@ export default function BookingPage() {
                   placeholder="Any special requests or needs?"
                   className="w-full border border-gray-200 rounded-lg px-4 py-2 mt-1 focus:ring-2 focus:ring-yellow-500 focus:outline-none font-inter text-gray-800 resize-none"
                 ></textarea>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700 block mb-1 font-inter">Payment Method</label>
+                <select 
+                  value={formData.payment_method}
+                  onChange={(e) => setFormData({...formData, payment_method: e.target.value})}
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2 mt-1 focus:ring-2 focus:ring-yellow-500 focus:outline-none font-inter text-gray-800 bg-white"
+                >
+                  <option value="credit_card">Credit Card</option>
+                  <option value="debit_card">Debit Card</option>
+                  <option value="upi">UPI / Net Banking</option>
+                  <option value="pay_at_hotel">Pay at Hotel</option>
+                </select>
               </div>
 
               <button 

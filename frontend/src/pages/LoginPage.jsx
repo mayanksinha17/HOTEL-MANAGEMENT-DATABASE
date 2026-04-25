@@ -11,13 +11,16 @@ export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', isAdmin: false });
 
   const fallbackImg = 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200';
 
   if (user) return <Navigate to="/dashboard" replace />;
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,9 +31,9 @@ export default function LoginPage() {
         toast.success('Logged in successfully!');
         navigate(u.is_admin ? '/admin' : '/dashboard');
       } else {
-        await register(form.name, form.email, form.phone, form.password);
+        const u = await register(form.name, form.email, form.phone, form.password, form.isAdmin);
         toast.success('Registered successfully!');
-        navigate('/dashboard');
+        navigate(u.is_admin ? '/admin' : '/dashboard');
       }
     } catch (err) {
       toast.error(isLogin ? 'Login failed' : 'Registration failed');
@@ -152,6 +155,22 @@ export default function LoginPage() {
                     {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                   </button>
                 </div>
+
+                {!isLogin && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="checkbox" 
+                      id="isAdmin" 
+                      name="isAdmin"
+                      checked={form.isAdmin}
+                      onChange={handleChange}
+                      className="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 w-4 h-4"
+                    />
+                    <label htmlFor="isAdmin" className="text-sm text-gray-600 font-inter cursor-pointer">
+                      Register as Administrator
+                    </label>
+                  </div>
+                )}
 
                 <button 
                   type="submit" 
