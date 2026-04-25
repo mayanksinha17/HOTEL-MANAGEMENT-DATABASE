@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { FiLogOut, FiHome, FiGrid, FiList, FiUsers, FiUser, FiCheckCircle } from 'react-icons/fi';
 import api from '../api/axios';
 import { toast } from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiAlertTriangle, FiX } from 'react-icons/fi';
 
 export default function AdminPage() {
   const { user, logout, setUser } = useAuth();
@@ -15,6 +16,7 @@ export default function AdminPage() {
   // Profile Form State
   const [profileForm, setProfileForm] = useState({ name: user?.name || '', phone: user?.phone || '' });
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [cancelModal, setCancelModal] = useState({ isOpen: false, bookingId: null });
 
   useEffect(() => {
     fetchData();
@@ -74,18 +76,23 @@ export default function AdminPage() {
 
   const handleDelete = (id) => {
     if (activeTab === 'Bookings' || activeTab === 'Dashboard') {
-      if (!window.confirm('Are you sure you want to cancel this booking?')) return;
-      api.put(`/bookings/${id}/cancel`)
-        .then(() => {
-          toast.success('Booking cancelled successfully');
-          fetchData(); // Refresh table
-        })
-        .catch(err => {
-          toast.error(err.response?.data?.detail || 'Failed to cancel booking');
-        });
+      setCancelModal({ isOpen: true, bookingId: id });
     } else {
       toast.error(`Delete functionality for ${activeTab} is disabled in this demo.`);
     }
+  };
+
+  const confirmCancel = () => {
+    const id = cancelModal.bookingId;
+    setCancelModal({ isOpen: false, bookingId: null });
+    api.put(`/bookings/${id}/cancel`)
+      .then(() => {
+        toast.success('Booking cancelled successfully');
+        fetchData();
+      })
+      .catch(err => {
+        toast.error(err.response?.data?.detail || 'Failed to cancel booking');
+      });
   };
 
   const navLinks = ['Dashboard', 'Hotels', 'Rooms', 'Bookings', 'Profile'];
@@ -342,6 +349,56 @@ export default function AdminPage() {
           )}
         </motion.div>
       </div>
+
+      {/* Cancel Booking Modal */}
+      <AnimatePresence>
+        {cancelModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative"
+            >
+              <button
+                onClick={() => setCancelModal({ isOpen: false, bookingId: null })}
+                className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition"
+              >
+                <FiX size={24} />
+              </button>
+
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-6">
+                <FiAlertTriangle size={28} className="text-red-500" />
+              </div>
+
+              <h3 className="text-2xl font-playfair font-bold text-[#0D1B2A] mb-3">Cancel Reservation</h3>
+              <p className="text-gray-500 font-inter mb-8 leading-relaxed">
+                Are you sure you want to cancel this booking? This action cannot be undone, the room will be released and the payment will be refunded.
+              </p>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setCancelModal({ isOpen: false, bookingId: null })}
+                  className="flex-1 py-3.5 rounded-xl font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all font-inter"
+                >
+                  Keep Booking
+                </button>
+                <button
+                  onClick={confirmCancel}
+                  className="flex-1 py-3.5 rounded-xl font-semibold text-white bg-red-500 hover:bg-red-600 shadow-md hover:shadow-lg transition-all font-inter"
+                >
+                  Yes, Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
