@@ -66,6 +66,22 @@ export default function AdminPage() {
       .finally(() => setUpdatingProfile(false));
   };
 
+  const handleDelete = (id) => {
+    if (activeTab === 'Bookings') {
+      if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+      api.put(`/bookings/${id}/cancel`)
+        .then(() => {
+          toast.success('Booking cancelled successfully');
+          fetchData(); // Refresh table
+        })
+        .catch(err => {
+          toast.error(err.response?.data?.detail || 'Failed to cancel booking');
+        });
+    } else {
+      toast.error(`Delete functionality for ${activeTab} is disabled in this demo.`);
+    }
+  };
+
   const navLinks = ['Dashboard', 'Hotels', 'Rooms', 'Bookings', 'Profile'];
 
   const renderDashboard = () => (
@@ -103,11 +119,22 @@ export default function AdminPage() {
                 <tr key={item.id} className={`${idx !== dataList.length - 1 ? 'border-b border-gray-50' : ''} hover:bg-gray-50/50 transition-colors`}>
                   <td className="py-5 px-8 text-gray-500 font-inter text-sm font-medium">#{item.id}</td>
                   <td className="py-5 px-8 text-[#0D1B2A] font-inter text-sm font-semibold">
-                    {activeTab === 'Hotels' ? item.name : activeTab === 'Bookings' ? `${item.hotel_name} — ${item.room_type}` : activeTab === 'Rooms' ? item.room_type : item.name || 'Detail'}
+                    {activeTab === 'Hotels' ? item.name : activeTab === 'Bookings' ? (
+                      <div className="flex items-center gap-3">
+                        <span>{item.hotel_name} — {item.room_type}</span>
+                        {item.status === 'cancelled' && (
+                          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded uppercase">Cancelled</span>
+                        )}
+                      </div>
+                    ) : activeTab === 'Rooms' ? item.room_type : item.name || 'Detail'}
                   </td>
                   <td className="py-5 px-8 text-sm">
-                    <button className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors mr-3 font-medium font-inter">Edit</button>
-                    <button className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-md transition-colors font-medium font-inter">Delete</button>
+                    <button onClick={() => toast.error('Edit disabled in demo')} className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded-md transition-colors mr-3 font-medium font-inter">Edit</button>
+                    {activeTab === 'Bookings' && item.status !== 'cancelled' ? (
+                      <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-md transition-colors font-medium font-inter">Cancel</button>
+                    ) : (
+                      <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-md transition-colors font-medium font-inter disabled:opacity-50">Delete</button>
+                    )}
                   </td>
                 </tr>
               ))

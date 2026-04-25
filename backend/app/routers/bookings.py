@@ -144,7 +144,7 @@ def cancel_booking(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Booking not found"
         )
-    if booking.user_id != current_user.id:
+    if booking.user_id != current_user.id and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only cancel your own bookings"
