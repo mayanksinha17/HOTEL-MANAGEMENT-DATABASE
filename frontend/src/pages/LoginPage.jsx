@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   const fallbackImg = 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200';
 
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={user.is_admin ? "/admin" : "/dashboard"} replace />;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
