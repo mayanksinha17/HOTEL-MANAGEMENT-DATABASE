@@ -91,20 +91,40 @@ dbms/
 
 ---
 
-## ⚙️ Local Setup & Installation
+## 🐳 Docker Quickstart (Recommended)
+
+The easiest way to run the entire application stack (PostgreSQL, Backend, and Frontend) is using Docker Compose.
+
+### Prerequisites
+- Docker & Docker Compose
+
+### Start the Stack
+```bash
+# Clone the repository
+git clone https://github.com/Halcyonic-01/dbms_aat.git
+cd dbms_aat
+
+# Build and start all containers
+docker-compose up --build
+```
+> The frontend will be available at `http://localhost` and the backend API at `http://localhost:8000`.
+
+**Seed the Database (First Run Only):**
+Since Docker creates a fresh, empty database, you need to populate it with the initial hotel data. While the containers are running, execute:
+```bash
+docker exec staylux_backend python -m app.services.seed
+```
+
+---
+
+## ⚙️ Manual Setup & Installation (Without Docker)
 
 ### Prerequisites
 - Python 3.10+
-- Node.js 18+
+- Node.js 20+
 - PostgreSQL running locally
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Halcyonic-01/dbms_aat.git
-cd dbms_aat
-```
-
-### 2. Backend Setup
+### 1. Backend Setup
 ```bash
 cd backend
 
@@ -126,13 +146,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
 Create the PostgreSQL database and seed it:
 ```bash
-# Create the DB
-psql -U postgres -c "CREATE DATABASE hotel_booking;"
-
-# Run migrations
-alembic upgrade head
-
-# Seed initial data (hotels, rooms, admin account)
+# Run migrations (or let main.py create tables)
 python -m app.services.seed
 ```
 
@@ -143,7 +157,7 @@ uvicorn app.main:app --reload
 > API will be available at `http://localhost:8000`
 > Interactive API docs at `http://localhost:8000/docs`
 
-### 3. Frontend Setup
+### 2. Frontend Setup
 ```bash
 cd frontend
 
@@ -154,6 +168,18 @@ npm install
 npm run dev
 ```
 > App will be available at `http://localhost:5173` (or `5174`)
+
+---
+
+## 🧪 Testing
+
+The backend includes a comprehensive `pytest` suite testing core endpoints (health checks, hotels, auth).
+
+```bash
+cd backend
+source venv/bin/activate
+pytest tests/test_main.py -v
+```
 
 ---
 
