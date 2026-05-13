@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiMapPin } from 'react-icons/fi';
 import { FaStar } from 'react-icons/fa';
@@ -7,8 +7,8 @@ import api from '../api/axios';
 export default function SearchPage() {
   const navigate = useNavigate();
   const fallbackImg = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800';
-  const [allHotels, setAllHotels] = useState([]);
   const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [filters, setFilters] = useState({
     minPrice: '',
@@ -19,14 +19,37 @@ export default function SearchPage() {
 
   const amenitiesList = ['WiFi', 'Pool', 'Parking', 'AC', 'Gym'];
 
-  useEffect(() => {
-    api.get('/hotels/')
+  const fetchHotels = useCallback((appliedFilters = {}) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    // Use a high limit so all matching hotels are returned
+    params.append('limit', '100');
+
+    if (appliedFilters.minPrice) {
+      params.append('min_price', appliedFilters.minPrice);
+    }
+    if (appliedFilters.maxPrice) {
+      params.append('max_price', appliedFilters.maxPrice);
+    }
+    if (appliedFilters.stars && appliedFilters.stars.length > 0) {
+      // Send star ratings as comma-separated for backend filtering
+      params.append('star_rating', appliedFilters.stars.join(','));
+    }
+    if (appliedFilters.amenities && appliedFilters.amenities.length > 0) {
+      params.append('amenities', appliedFilters.amenities.join(','));
+    }
+
+    api.get(`/hotels/?${params.toString()}`)
       .then(res => {
-        setAllHotels(res.data);
         setHotels(res.data);
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchHotels();
+  }, [fetchHotels]);
 
   const handleStarChange = (star) => {
     setFilters(prev => ({
@@ -48,25 +71,12 @@ export default function SearchPage() {
 
   const applyFilters = (e) => {
     e.preventDefault();
-    let filtered = [...allHotels];
+    fetchHotels(filters);
+  };
 
-    if (filters.minPrice) {
-      filtered = filtered.filter(h => h.price_per_night >= Number(filters.minPrice));
-    }
-    if (filters.maxPrice) {
-      filtered = filtered.filter(h => h.price_per_night <= Number(filters.maxPrice));
-    }
-    if (filters.stars.length > 0) {
-      filtered = filtered.filter(h => filters.stars.includes(h.star_rating));
-    }
-    if (filters.amenities.length > 0) {
-      filtered = filtered.filter(h => {
-        const hAmenities = h.amenities ? (typeof h.amenities === 'string' ? h.amenities.toLowerCase() : JSON.stringify(h.amenities).toLowerCase()) : '';
-        return filters.amenities.every(a => hAmenities.includes(a.toLowerCase()));
-      });
-    }
-
-    setHotels(filtered);
+  const clearFilters = () => {
+    setFilters({ minPrice: '', maxPrice: '', stars: [], amenities: [] });
+    fetchHotels();
   };
 
   return (
@@ -76,7 +86,14 @@ export default function SearchPage() {
         {/* Left Sidebar */}
         <div className="w-full lg:w-64 shrink-0">
           <form onSubmit={applyFilters} className="bg-white rounded-2xl p-6 shadow-sm h-fit lg:sticky lg:top-24">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4 font-inter">Filters</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 font-inter">Filters</h2>
+              {(filters.minPrice || filters.maxPrice || filters.stars.length > 0 || filters.amenities.length > 0) && (
+                <button type="button" onClick={clearFilters} className="text-xs text-yellow-600 hover:text-yellow-700 font-semibold font-inter">
+                  Clear All
+                </button>
+              )}
+            </div>
             
             {/* Price Range */}
             <div className="mb-6">
@@ -150,48 +167,59 @@ export default function SearchPage() {
         <div className="flex-1">
           <p className="text-gray-500 mb-4 text-sm font-inter">Showing {hotels.length} properties</p>
           
-          <div className="space-y-4">
-            {hotels.map(hotel => (
-              <div key={hotel.id} className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col md:flex-row gap-0 mb-4 hover:shadow-lg transition">
-                <img 
-                  src={hotel.image_url} 
-                  alt={hotel.name} 
-                  className="w-full md:w-64 h-48 object-cover shrink-0"
-                  onError={(e) => e.target.src = fallbackImg}
-                />
-                <div className="p-5 flex flex-col justify-between flex-1">
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-xl font-semibold text-gray-800 font-inter">{hotel.name}</h3>
-                      <div className="flex items-center gap-1 text-yellow-500 text-sm">
-                        {Array.from({ length: hotel.star_rating }).map((_, i) => (
-                          <FaStar key={i} />
-                        ))}
+          {loading ? (
+            <div className="w-full flex justify-center py-20">
+              <div className="w-10 h-10 border-4 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : hotels.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+              <h3 className="text-xl font-semibold text-gray-800 mb-2 font-inter">No hotels found</h3>
+              <p className="text-gray-500 text-sm font-inter">Try adjusting your filters to see more results.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {hotels.map(hotel => (
+                <div key={hotel.id} className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col md:flex-row gap-0 mb-4 hover:shadow-lg transition">
+                  <img 
+                    src={hotel.image_url} 
+                    alt={hotel.name} 
+                    className="w-full md:w-64 h-48 object-cover shrink-0"
+                    onError={(e) => e.target.src = fallbackImg}
+                  />
+                  <div className="p-5 flex flex-col justify-between flex-1">
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-xl font-semibold text-gray-800 font-inter">{hotel.name}</h3>
+                        <div className="flex items-center gap-1 text-yellow-500 text-sm">
+                          {Array.from({ length: hotel.star_rating }).map((_, i) => (
+                            <FaStar key={i} />
+                          ))}
+                        </div>
                       </div>
+                      <div className="flex items-center gap-1 text-gray-500 text-sm mt-2 font-inter">
+                        <FiMapPin /> {hotel.city}, {hotel.state}
+                      </div>
+                      <p className="text-gray-600 text-sm mt-3 line-clamp-2 font-inter">
+                        {hotel.description}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-500 text-sm mt-2 font-inter">
-                      <FiMapPin /> {hotel.city}, {hotel.state}
+                    
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-yellow-600 text-2xl font-bold font-inter">
+                        ₹{hotel.price_per_night.toLocaleString()} <span className="text-sm font-normal text-gray-500">/ night</span>
+                      </div>
+                      <button 
+                        onClick={() => navigate(`/hotel/${hotel.id}`)}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-semibold transition font-inter"
+                      >
+                        View Rooms
+                      </button>
                     </div>
-                    <p className="text-gray-600 text-sm mt-3 line-clamp-2 font-inter">
-                      {hotel.description}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="text-yellow-600 text-2xl font-bold font-inter">
-                      ₹{hotel.price_per_night.toLocaleString()} <span className="text-sm font-normal text-gray-500">/ night</span>
-                    </div>
-                    <button 
-                      onClick={() => navigate(`/hotel/${hotel.id}`)}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-semibold transition font-inter"
-                    >
-                      View Rooms
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>

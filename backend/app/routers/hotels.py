@@ -22,7 +22,7 @@ def list_hotels(
     city: Optional[str] = Query(None, description="Filter by city"),
     min_price: Optional[float] = Query(None, description="Minimum price per night"),
     max_price: Optional[float] = Query(None, description="Maximum price per night"),
-    star_rating: Optional[int] = Query(None, description="Minimum star rating"),
+    star_rating: Optional[str] = Query(None, description="Comma-separated star ratings (e.g. '3,4,5')"),
     amenities: Optional[str] = Query(None, description="Comma-separated amenities"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -42,7 +42,10 @@ def list_hotels(
     if max_price is not None:
         query = query.filter(Hotel.price_per_night <= max_price)
     if star_rating is not None:
-        query = query.filter(Hotel.star_rating >= star_rating)
+        # Support comma-separated star ratings for exact match (e.g. "3,4,5")
+        star_list = [int(s.strip()) for s in star_rating.split(",") if s.strip().isdigit()]
+        if star_list:
+            query = query.filter(Hotel.star_rating.in_(star_list))
     if amenities:
         # Filter hotels that have ALL the requested amenities
         amenity_list = [a.strip() for a in amenities.split(",")]
