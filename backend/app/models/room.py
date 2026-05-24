@@ -20,6 +20,7 @@ class Room(Base):
     room_type = Column(String(100), nullable=False)  # e.g. "Deluxe", "Suite", "Standard"
     description = Column(Text, nullable=True)
     price_per_night = Column(Float, nullable=False)
+    base_price = Column(Float, nullable=False)
     capacity = Column(Integer, nullable=False, default=2)  # Max guests
     bed_type = Column(String(50), nullable=False, default="Double")  # "Single", "Double", "King"
     total_rooms = Column(Integer, nullable=False, default=1)  # Total rooms of this type

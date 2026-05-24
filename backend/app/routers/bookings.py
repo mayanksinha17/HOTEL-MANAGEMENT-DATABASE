@@ -113,9 +113,22 @@ def get_my_bookings(
         db.query(Booking)
         .options(joinedload(Booking.room))
         .filter(Booking.user_id == current_user.id)
-        .order_by(Booking.created_at.desc())
+        .order_by(Booking.created_at.desc(), Booking.id.desc())
         .all()
     )
+
+    today = date.today()
+    needs_commit = False
+    for b in bookings:
+        if b.status == "confirmed" and b.check_out < today:
+            b.status = "completed"
+            if b.room:
+                b.room.available_rooms += 1
+                b.room.is_available = True
+            needs_commit = True
+            
+    if needs_commit:
+        db.commit()
 
     result = []
     for b in bookings:
@@ -192,9 +205,22 @@ def get_all_bookings(
         db.query(Booking)
         .options(joinedload(Booking.room).joinedload(Room.hotel))
         .options(joinedload(Booking.user))
-        .order_by(Booking.created_at.desc())
+        .order_by(Booking.created_at.desc(), Booking.id.desc())
         .all()
     )
+
+    today = date.today()
+    needs_commit = False
+    for b in bookings:
+        if b.status == "confirmed" and b.check_out < today:
+            b.status = "completed"
+            if b.room:
+                b.room.available_rooms += 1
+                b.room.is_available = True
+            needs_commit = True
+            
+    if needs_commit:
+        db.commit()
 
     result = []
     for b in bookings:

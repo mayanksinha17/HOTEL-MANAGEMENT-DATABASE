@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { FiLogOut, FiHome, FiGrid, FiList, FiUsers, FiUser, FiCheckCircle } from 'react-icons/fi';
+import { FiLogOut, FiHome, FiGrid, FiList, FiUsers, FiUser, FiCheckCircle, FiBarChart2, FiTrendingUp, FiDollarSign, FiAward, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import api from '../api/axios';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,9 +18,26 @@ export default function AdminPage() {
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [cancelModal, setCancelModal] = useState({ isOpen: false, bookingId: null });
 
+  // Analytics state
+  const [profitData, setProfitData] = useState([]);
+  const [holidayPreview, setHolidayPreview] = useState([]);
+  const [hotelRanking, setHotelRanking] = useState([]);
+  const [bookingTrends, setBookingTrends] = useState([]);
+  const [surgePct, setSurgePct] = useState(0);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [activeAnalyticsSection, setActiveAnalyticsSection] = useState(null);
+
   useEffect(() => {
     fetchData();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'Analytics') {
+      api.get(`/admin/pricing/holiday/preview?surge_pct=${surgePct}`)
+        .then(res => setHolidayPreview(res.data))
+        .catch(err => console.error(err));
+    }
+  }, [surgePct, activeTab]);
 
   const fetchData = () => {
     if (activeTab === 'Profile') {
@@ -55,6 +72,22 @@ export default function AdminPage() {
         .then(res => setDataList(res.data))
         .catch(err => console.error(err))
         .finally(() => setLoading(false));
+    } else if (activeTab === 'Analytics') {
+      setAnalyticsLoading(true);
+      Promise.all([
+        api.get('/admin/profit/yearly'),
+        api.get(`/admin/pricing/holiday/preview?surge_pct=${surgePct}`),
+        api.get('/admin/analytics/hotel-ranking'),
+        api.get('/admin/analytics/booking-trends'),
+      ])
+        .then(([profitRes, holidayRes, rankingRes, trendsRes]) => {
+          setProfitData(profitRes.data);
+          setHolidayPreview(holidayRes.data);
+          setHotelRanking(rankingRes.data);
+          setBookingTrends(trendsRes.data);
+        })
+        .catch(err => console.error(err))
+        .finally(() => { setLoading(false); setAnalyticsLoading(false); });
     } else {
       setDataList([]);
       setLoading(false);
@@ -95,7 +128,7 @@ export default function AdminPage() {
       });
   };
 
-  const navLinks = ['Dashboard', 'Hotels', 'Rooms', 'Bookings', 'Profile'];
+  const navLinks = ['Dashboard', 'Hotels', 'Rooms', 'Bookings', 'Analytics', 'Profile'];
 
   const renderDashboard = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -290,6 +323,297 @@ export default function AdminPage() {
     </div>
   );
 
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const toggleSection = (section) => {
+    setActiveAnalyticsSection(prev => prev === section ? null : section);
+  };
+
+  const handleApplySurge = () => {
+    api.post('/admin/pricing/holiday', { surge_pct: surgePct })
+      .then(() => {
+        toast.success(`Holiday surge of ${surgePct}% applied successfully!`);
+        fetchData();
+      })
+      .catch(err => {
+        toast.error(err.response?.data?.detail || 'Failed to apply surge pricing');
+      });
+  };
+
+  const refetchHolidayPreview = () => {
+    api.get(`/admin/pricing/holiday/preview?surge_pct=${surgePct}`)
+      .then(res => setHolidayPreview(res.data))
+      .catch(err => console.error(err));
+  };
+
+  const renderAnalytics = () => (
+    <div className="space-y-6">
+      {analyticsLoading ? (
+        <div className="w-full flex justify-center py-20">
+          <div className="w-10 h-10 border-4 border-[#C9A84C] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <>
+          {/* Section 1: Yearly Profit Report */}
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+            <div
+              onClick={() => toggleSection('profit')}
+              className="p-6 cursor-pointer flex items-center justify-between hover:bg-gray-50/50 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center shadow-sm">
+                  <FiDollarSign size={22} className="text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-playfair text-xl font-bold text-[#0D1B2A]">📊 Yearly Profit Report</h3>
+                  <p className="text-sm text-[#64748B] mt-0.5">Monthly breakdown of revenue, refunds, and net profit</p>
+                </div>
+              </div>
+              {activeAnalyticsSection === 'profit' ? <FiChevronUp size={20} className="text-gray-400" /> : <FiChevronDown size={20} className="text-gray-400" />}
+            </div>
+            {activeAnalyticsSection === 'profit' && (
+              <div className="p-6 pt-0">
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50">
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Hotel</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Month</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Bookings</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Gross Revenue (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Refunds (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Net Profit (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {profitData.length === 0 ? (
+                        <tr><td colSpan="6" className="py-12 text-center text-gray-400">No profit data available</td></tr>
+                      ) : (
+                        profitData.map((row, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? '' : 'bg-gray-50/30'}>
+                            <td className="py-3 px-4 text-sm font-semibold text-[#0D1B2A]">{row.hotel_name}</td>
+                            <td className="py-3 px-4 text-sm text-[#64748B]">{monthNames[row.month - 1] || row.month}</td>
+                            <td className="py-3 px-4 text-sm text-[#0D1B2A] font-medium">{row.total_bookings}</td>
+                            <td className="py-3 px-4 text-sm text-[#0D1B2A]">₹{Number(row.gross_revenue || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-sm text-red-500">₹{Number(row.refunds || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-sm font-bold text-green-600">₹{Number(row.net_profit || 0).toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Holiday Pricing Manager */}
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+            <div
+              onClick={() => toggleSection('holiday')}
+              className="p-6 cursor-pointer flex items-center justify-between hover:bg-gray-50/50 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-100 flex items-center justify-center shadow-sm">
+                  <FiTrendingUp size={22} className="text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-playfair text-xl font-bold text-[#0D1B2A]">🏖️ Holiday Pricing Manager</h3>
+                  <p className="text-sm text-[#64748B] mt-0.5">Simulate and apply surge pricing for holiday seasons</p>
+                </div>
+              </div>
+              {activeAnalyticsSection === 'holiday' ? <FiChevronUp size={20} className="text-gray-400" /> : <FiChevronDown size={20} className="text-gray-400" />}
+            </div>
+            {activeAnalyticsSection === 'holiday' && (
+              <div className="p-6 pt-0">
+                <div className="bg-gradient-to-r from-amber-50/50 to-yellow-50/30 rounded-2xl p-6 mb-6 border border-amber-100/50">
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                    <div className="flex-1 w-full">
+                      <label className="block text-sm font-semibold text-[#0D1B2A] mb-3">Surge Percentage: <span className="text-amber-600 text-lg">{surgePct}%</span></label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={surgePct}
+                        onChange={e => setSurgePct(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-gray-100 mb-6">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50">
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Hotel</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Room Type</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Current Price (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Holiday Price (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Increase (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {holidayPreview.length === 0 ? (
+                        <tr><td colSpan="5" className="py-12 text-center text-gray-400">No pricing data available</td></tr>
+                      ) : (
+                        holidayPreview.map((row, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? '' : 'bg-gray-50/30'}>
+                            <td className="py-3 px-4 text-sm font-semibold text-[#0D1B2A]">{row.hotel_name}</td>
+                            <td className="py-3 px-4 text-sm text-[#64748B]">{row.room_type}</td>
+                            <td className="py-3 px-4 text-sm text-[#0D1B2A]">₹{Number(row.current_price || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-sm font-bold text-amber-600">₹{Number(row.holiday_price || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-sm text-green-600 font-medium">+₹{Number(row.price_increase || 0).toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleApplySurge}
+                    className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl font-semibold hover:from-amber-600 hover:to-yellow-600 transition-all shadow-lg hover:shadow-xl text-sm"
+                  >
+                    ⚡ Apply Surge ({surgePct}%)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Hotel Revenue Ranking */}
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+            <div
+              onClick={() => toggleSection('ranking')}
+              className="p-6 cursor-pointer flex items-center justify-between hover:bg-gray-50/50 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center shadow-sm">
+                  <FiAward size={22} className="text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-playfair text-xl font-bold text-[#0D1B2A]">🏆 Hotel Revenue Ranking</h3>
+                  <p className="text-sm text-[#64748B] mt-0.5">Performance leaderboard by revenue, occupancy, and bookings</p>
+                </div>
+              </div>
+              {activeAnalyticsSection === 'ranking' ? <FiChevronUp size={20} className="text-gray-400" /> : <FiChevronDown size={20} className="text-gray-400" />}
+            </div>
+            {activeAnalyticsSection === 'ranking' && (
+              <div className="p-6 pt-0">
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50">
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Rank</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Hotel</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">City</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Stars</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Bookings</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Revenue (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Avg Value (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Occupancy %</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Revenue Share %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hotelRanking.length === 0 ? (
+                        <tr><td colSpan="9" className="py-12 text-center text-gray-400">No ranking data available</td></tr>
+                      ) : (
+                        hotelRanking.map((row, idx) => {
+                          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                          const occColor = Number(row.occupancy_pct) > 70 ? 'text-green-600' : Number(row.occupancy_pct) >= 40 ? 'text-yellow-600' : 'text-red-500';
+                          return (
+                            <tr key={idx} className={idx % 2 === 0 ? '' : 'bg-gray-50/30'}>
+                              <td className="py-3 px-4 text-sm font-bold text-center text-lg">{medal}</td>
+                              <td className="py-3 px-4 text-sm font-semibold text-[#0D1B2A]">{row.name}</td>
+                              <td className="py-3 px-4 text-sm text-[#64748B]">{row.city}</td>
+                              <td className="py-3 px-4 text-sm">{'⭐'.repeat(row.star_rating || 0)}</td>
+                              <td className="py-3 px-4 text-sm text-[#0D1B2A] font-medium">{row.total_bookings}</td>
+                              <td className="py-3 px-4 text-sm font-bold text-[#0D1B2A]">₹{Number(row.total_revenue || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4 text-sm text-[#64748B]">₹{Number(row.avg_booking_value || 0).toLocaleString()}</td>
+                              <td className={`py-3 px-4 text-sm font-bold ${occColor}`}>{Number(row.occupancy_pct || 0).toFixed(1)}%</td>
+                              <td className="py-3 px-4 text-sm text-purple-600 font-medium">{Number(row.revenue_share_pct || 0).toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Monthly Booking Trends */}
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
+            <div
+              onClick={() => toggleSection('trends')}
+              className="p-6 cursor-pointer flex items-center justify-between hover:bg-gray-50/50 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center shadow-sm">
+                  <FiTrendingUp size={22} className="text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-playfair text-xl font-bold text-[#0D1B2A]">📈 Monthly Booking Trends</h3>
+                  <p className="text-sm text-[#64748B] mt-0.5">Track growth, moving averages, and cumulative revenue</p>
+                </div>
+              </div>
+              {activeAnalyticsSection === 'trends' ? <FiChevronUp size={20} className="text-gray-400" /> : <FiChevronDown size={20} className="text-gray-400" />}
+            </div>
+            {activeAnalyticsSection === 'trends' && (
+              <div className="p-6 pt-0">
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50">
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Period</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Bookings</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Revenue (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">3M Avg (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Cumulative (₹)</th>
+                        <th className="py-4 px-4 text-xs uppercase tracking-wider font-semibold text-gray-500">Growth %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bookingTrends.length === 0 ? (
+                        <tr><td colSpan="6" className="py-12 text-center text-gray-400">No trend data available</td></tr>
+                      ) : (
+                        bookingTrends.map((row, idx) => {
+                          const growth = row.growth_pct;
+                          const growthColor = growth === null || growth === undefined ? 'text-gray-400' : Number(growth) >= 0 ? 'text-green-600' : 'text-red-500';
+                          const growthIcon = growth === null || growth === undefined ? '—' : Number(growth) >= 0 ? '↑' : '↓';
+                          return (
+                            <tr key={idx} className={idx % 2 === 0 ? '' : 'bg-gray-50/30'}>
+                              <td className="py-3 px-4 text-sm font-semibold text-[#0D1B2A]">{row.period}</td>
+                              <td className="py-3 px-4 text-sm text-[#0D1B2A] font-medium">{row.bookings}</td>
+                              <td className="py-3 px-4 text-sm text-[#0D1B2A]">₹{Number(row.revenue || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4 text-sm text-[#64748B]">₹{Number(row.moving_avg_3m || 0).toLocaleString()}</td>
+                              <td className="py-3 px-4 text-sm font-bold text-[#0D1B2A]">₹{Number(row.cumulative_revenue || 0).toLocaleString()}</td>
+                              <td className={`py-3 px-4 text-sm font-bold ${growthColor}`}>
+                                {growth === null || growth === undefined ? '—' : `${growthIcon} ${Math.abs(Number(growth)).toFixed(1)}%`}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen bg-[#F8F9FA] pt-16 font-inter">
       {/* Sidebar */}
@@ -310,6 +634,7 @@ export default function AdminPage() {
               {link === 'Hotels' && <FiHome size={20} />}
               {link === 'Rooms' && <FiList size={20} />}
               {link === 'Bookings' && <FiUsers size={20} />}
+              {link === 'Analytics' && <FiBarChart2 size={20} />}
               {link === 'Profile' && <FiUser size={20} />}
               <span className="text-[15px]">{link}</span>
             </div>
@@ -345,6 +670,7 @@ export default function AdminPage() {
             ) : 
             activeTab === 'Profile' ? renderProfile() : 
             activeTab === 'Bookings' ? renderBookingCards() :
+            activeTab === 'Analytics' ? renderAnalytics() :
             renderTable()
           )}
         </motion.div>

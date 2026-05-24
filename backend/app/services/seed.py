@@ -1,11 +1,14 @@
 """
 Seed script — populates the database with sample hotels, rooms, and an admin user.
+Also creates dummy bookings, payments, and reviews for demo/testing.
 Run this once after setting up the database:
     cd backend && source venv/bin/activate && python -m app.services.seed
 """
 
 import sys
 import os
+import uuid
+from datetime import date
 
 # Add parent directory to path so imports work
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -15,6 +18,9 @@ from app.core.security import hash_password
 from app.models.user import User
 from app.models.hotel import Hotel
 from app.models.room import Room
+from app.models.booking import Booking
+from app.models.payment import Payment
+from app.models.review import Review
 
 
 def seed_database():
@@ -174,14 +180,194 @@ def seed_database():
             ],
         ]
 
+        # Collect all room objects into a flat list for easy referencing
+        all_rooms = []
         for i, hotel in enumerate(hotels):
             for room_data in room_templates[i]:
+                room_data["base_price"] = room_data["price_per_night"]
                 room = Room(hotel_id=hotel.id, **room_data)
                 db.add(room)
+                all_rooms.append(room)
 
+        db.flush()  # Flush to get room IDs before creating bookings
+
+        # =====================================================================
+        # --- Create 5 Extra Users (realistic Indian names) ---
+        # =====================================================================
+        extra_users_data = [
+            {"name": "Rahul Sharma",  "email": "rahul@test.com",  "phone": "+91-9876543212"},
+            {"name": "Priya Patel",   "email": "priya@test.com",  "phone": "+91-9876543213"},
+            {"name": "Amit Kumar",    "email": "amit@test.com",   "phone": "+91-9876543214"},
+            {"name": "Neha Gupta",    "email": "neha@test.com",   "phone": "+91-9876543215"},
+            {"name": "Vikram Singh",  "email": "vikram@test.com", "phone": "+91-9876543216"},
+        ]
+        extra_users = []
+        for u_data in extra_users_data:
+            user = User(
+                name=u_data["name"],
+                email=u_data["email"],
+                phone=u_data["phone"],
+                hashed_password=hash_password("test123"),
+                is_admin=False,
+            )
+            db.add(user)
+            extra_users.append(user)
+
+        db.flush()  # Flush to get user IDs
+
+        # All bookable users: test_user + 5 extra users
+        all_users = [test_user] + extra_users
+
+        # =====================================================================
+        # --- Create ~30 Bookings (Jan–May 2026) ---
+        # =====================================================================
+        # Room index mapping (flat list order):
+        #   0-2:  Grand Imperial (Mumbai)     — Deluxe, Executive Suite, Presidential
+        #   3-5:  Royal Heritage (Jaipur)      — Heritage, Royal Suite, Maharaja
+        #   6-7:  Skyline Business (Gurugram)  — Standard, Business Suite
+        #   8-9:  Seaside Retreat (Goa)        — Beach View, Pool Villa
+        #  10-11: Mountain View (Manali)       — Mountain Room, Family Cottage
+        #  12-13: Urban Comfort (Delhi)        — Standard, Deluxe
+
+        bookings_data = [
+            # --- 20 COMPLETED bookings ---
+            # user_idx, room_idx, check_in, check_out, guests, status, special_requests
+            (0, 0,  date(2026, 1, 5),  date(2026, 1, 8),  2, "completed", "Late check-in requested"),
+            (1, 3,  date(2026, 1, 10), date(2026, 1, 14), 2, "completed", "Heritage tour on day 2 please"),
+            (2, 6,  date(2026, 1, 15), date(2026, 1, 17), 1, "completed", "Need early morning wake-up call"),
+            (3, 8,  date(2026, 1, 20), date(2026, 1, 25), 2, "completed", "Anniversary celebration — cake please"),
+            (4, 10, date(2026, 1, 22), date(2026, 1, 26), 2, "completed", "Interested in trekking packages"),
+            (5, 12, date(2026, 2, 1),  date(2026, 2, 3),  1, "completed", None),
+            (0, 4,  date(2026, 2, 5),  date(2026, 2, 8),  3, "completed", "Vegetarian meals only"),
+            (1, 1,  date(2026, 2, 10), date(2026, 2, 13), 2, "completed", "Sea-facing room preferred"),
+            (2, 9,  date(2026, 2, 14), date(2026, 2, 18), 4, "completed", "Honeymoon trip — rose petals setup"),
+            (3, 7,  date(2026, 2, 20), date(2026, 2, 22), 2, "completed", "Need meeting room for 2 hours"),
+            (4, 13, date(2026, 3, 1),  date(2026, 3, 4),  2, "completed", None),
+            (5, 2,  date(2026, 3, 5),  date(2026, 3, 7),  2, "completed", "Birthday celebration"),
+            (0, 11, date(2026, 3, 10), date(2026, 3, 15), 4, "completed", "Family vacation — need extra blankets"),
+            (1, 5,  date(2026, 3, 12), date(2026, 3, 14), 2, "completed", "Private pool access required"),
+            (2, 0,  date(2026, 3, 18), date(2026, 3, 21), 2, "completed", None),
+            (3, 12, date(2026, 3, 25), date(2026, 3, 28), 1, "completed", "Near metro station room preferred"),
+            (4, 3,  date(2026, 4, 1),  date(2026, 4, 4),  2, "completed", "Want to visit Amber Fort"),
+            (5, 8,  date(2026, 4, 5),  date(2026, 4, 9),  2, "completed", "Beach-facing room"),
+            (0, 6,  date(2026, 4, 10), date(2026, 4, 12), 1, "completed", "Business trip — need fast WiFi"),
+            (1, 10, date(2026, 4, 15), date(2026, 4, 19), 2, "completed", "Bonfire arrangement on last evening"),
+
+            # --- 5 CONFIRMED bookings (upcoming) ---
+            (2, 1,  date(2026, 5, 1),  date(2026, 5, 4),  2, "confirmed", "Airport pickup needed"),
+            (3, 9,  date(2026, 5, 5),  date(2026, 5, 8),  3, "confirmed", "Pool villa with garden view"),
+            (4, 0,  date(2026, 5, 10), date(2026, 5, 13), 2, "confirmed", None),
+            (5, 11, date(2026, 5, 15), date(2026, 5, 20), 5, "confirmed", "Family reunion — adjoining rooms if possible"),
+            (0, 3,  date(2026, 5, 18), date(2026, 5, 22), 2, "confirmed", "Heritage room with balcony"),
+
+            # --- 5 CANCELLED bookings ---
+            (1, 6,  date(2026, 2, 25), date(2026, 2, 28), 1, "cancelled", "Plans changed"),
+            (2, 12, date(2026, 3, 1),  date(2026, 3, 3),  2, "cancelled", None),
+            (3, 4,  date(2026, 3, 15), date(2026, 3, 18), 3, "cancelled", "Flight cancelled"),
+            (4, 8,  date(2026, 4, 1),  date(2026, 4, 5),  2, "cancelled", "Medical emergency"),
+            (5, 10, date(2026, 4, 10), date(2026, 4, 13), 2, "cancelled", "Rescheduling to next month"),
+        ]
+
+        bookings = []
+        for user_idx, room_idx, ci, co, guests, status, special_req in bookings_data:
+            num_nights = (co - ci).days
+            total = num_nights * all_rooms[room_idx].price_per_night
+            booking = Booking(
+                user_id=all_users[user_idx].id,
+                room_id=all_rooms[room_idx].id,
+                check_in=ci,
+                check_out=co,
+                guests=guests,
+                total_price=total,
+                status=status,
+                special_requests=special_req,
+            )
+            db.add(booking)
+            bookings.append(booking)
+
+        db.flush()  # Flush to get booking IDs
+
+        # =====================================================================
+        # --- Create Payments (one per booking) ---
+        # =====================================================================
+        payment_methods = ["credit_card", "debit_card", "upi", "net_banking"]
+        payments = []
+        for i, booking in enumerate(bookings):
+            pay_status = "refunded" if booking.status == "cancelled" else "completed"
+            payment = Payment(
+                booking_id=booking.id,
+                amount=booking.total_price,
+                payment_method=payment_methods[i % len(payment_methods)],
+                transaction_id=f"TXN-SEED-{i:04d}",
+                status=pay_status,
+            )
+            db.add(payment)
+            payments.append(payment)
+
+        # =====================================================================
+        # --- Create Reviews (from completed bookings only) ---
+        # =====================================================================
+        review_comments = [
+            "Amazing stay! The room was spotless and staff was very helpful. Will definitely come back.",
+            "Beautiful heritage property. Felt like stepping back in time. Breakfast buffet was outstanding.",
+            "Good value for money. Clean rooms and convenient location near the business district.",
+            "Waking up to the sound of waves was magical. The seafood at the restaurant was incredible.",
+            "Perfect mountain getaway! The bonfire evening was the highlight. Cozy rooms with great views.",
+            "Decent hotel for a budget stay in Delhi. Close to Connaught Place and metro.",
+            "The suite was jaw-dropping — private balcony with sea view. Top-notch service throughout.",
+            "Rajasthani hospitality at its finest. The heritage tour was well organized.",
+            "Pool villa was paradise! Kids loved the private plunge pool. Family-friendly staff.",
+            "Great business hotel. Conference facilities were modern and well-equipped.",
+            "The Himalayan views from our cottage were breathtaking. Trekking trails were well-maintained.",
+            "Excellent location in the heart of Mumbai. Rooftop restaurant had stunning city views.",
+            "Romantic getaway in Goa was perfect. Beach access and spa were highlights.",
+            "Staff went above and beyond for our anniversary celebration. Truly memorable experience.",
+            "Clean, comfortable, and affordable. Everything a business traveler needs.",
+        ]
+
+        # Ratings: mostly 4s and 5s, a few 3s for variety
+        review_ratings = [5, 5, 4, 5, 4, 3, 5, 5, 4, 4, 5, 4, 5, 5, 3]
+
+        # We review completed bookings only; respect UniqueConstraint(user_id, hotel_id)
+        reviewed_pairs = set()  # Track (user_id, hotel_id) to avoid duplicates
+        reviews = []
+        completed_bookings = [b for b in bookings if b.status == "completed"]
+
+        review_idx = 0
+        for booking in completed_bookings:
+            if review_idx >= 15:
+                break
+            # Get the hotel_id via the room
+            room = all_rooms[next(
+                ri for ri, r in enumerate(all_rooms) if r.id == booking.room_id
+            )]
+            pair = (booking.user_id, room.hotel_id)
+            if pair in reviewed_pairs:
+                continue  # Skip duplicate user-hotel pair
+            reviewed_pairs.add(pair)
+
+            review = Review(
+                user_id=booking.user_id,
+                hotel_id=room.hotel_id,
+                rating=review_ratings[review_idx],
+                comment=review_comments[review_idx],
+            )
+            db.add(review)
+            reviews.append(review)
+            review_idx += 1
+
+        # =====================================================================
+        # --- Commit everything ---
+        # =====================================================================
         db.commit()
+
         print("✅ Database seeded successfully!")
         print(f"   → {len(hotels)} hotels created")
+        print(f"   → {len(all_rooms)} rooms created")
+        print(f"   → {len(all_users) + 1} users created (1 admin + {len(all_users)} regular)")
+        print(f"   → {len(bookings)} bookings created")
+        print(f"   → {len(payments)} payments created")
+        print(f"   → {len(reviews)} reviews created")
         print(f"   → Admin login: admin@hotelbooking.com / admin123")
         print(f"   → Test user: kushagra@test.com / test123")
 
